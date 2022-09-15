@@ -3,6 +3,7 @@ package com.example.demo.infra.security.config;
 import com.example.demo.application.user.repositories.UserRepository;
 import com.example.demo.infra.security.services.AppUserService;
 import com.example.demo.infra.security.filters.JwtFilter;
+import com.example.demo.infra.security.services.CustomAuthenticationEntryPoint;
 import com.example.demo.infra.security.services.TokenJWTService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -22,14 +23,13 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 
-import javax.servlet.http.HttpServletResponse;
-
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
 public class WebSecurityConfig {
     private final UserRepository userRepository;
     private final TokenJWTService tokenJWTService;
+    private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
     @Bean
     public UserDetailsService userDetailsService() {
         return new AppUserService();
@@ -39,14 +39,7 @@ public class WebSecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http.cors();
         http.sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
-        http.exceptionHandling().authenticationEntryPoint(
-                (request, response, ex) -> {
-                    response.sendError(
-                        HttpServletResponse.SC_UNAUTHORIZED,
-                        ex.getMessage()
-                    );
-                }
-        );
+        http.exceptionHandling().authenticationEntryPoint(customAuthenticationEntryPoint);
         http.csrf().disable();
         http.authorizeRequests()
                 .antMatchers(HttpMethod.POST, "/api/v*/auth/sign-in").permitAll()
@@ -58,7 +51,7 @@ public class WebSecurityConfig {
 
         http.authenticationProvider(authenticationProvider());
         http.addFilterBefore(
-                new JwtFilter(userRepository, tokenJWTService),
+                new JwtFilter(userRepository, tokenJWTService, customAuthenticationEntryPoint),
                 UsernamePasswordAuthenticationFilter.class
         );
         return http.build();
